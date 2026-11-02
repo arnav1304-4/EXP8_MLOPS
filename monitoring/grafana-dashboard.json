@@ -1,0 +1,94 @@
+{
+  "uid": "iris-mlops",
+  "title": "Iris Classifier - Model Monitoring",
+  "tags": ["mlops", "iris", "streamlit"],
+  "timezone": "browser",
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {
+      "id": 1, "type": "stat", "title": "Total predictions",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(iris_predictions_total)"}],
+      "fieldConfig": {"defaults": {"color": {"mode": "fixed", "fixedColor": "purple"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area"}
+    },
+    {
+      "id": 2, "type": "stat", "title": "Model accuracy (test set)",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "max(iris_model_accuracy)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 1, "color": {"mode": "fixed", "fixedColor": "green"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}
+    },
+    {
+      "id": 3, "type": "stat", "title": "App status",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "max(up{job=\"iris-app\"})"}],
+      "fieldConfig": {"defaults": {
+        "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}],
+        "color": {"mode": "thresholds"},
+        "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+      }, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "none"}
+    },
+    {
+      "id": 4, "type": "stat", "title": "p95 prediction latency",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 5},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(iris_prediction_latency_seconds_bucket[5m])))"}],
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background", "graphMode": "area"}
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Prediction rate by species (req/s)",
+      "gridPos": {"x": 0, "y": 5, "w": 16, "h": 9},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum by (species) (rate(iris_predictions_total[1m]))", "legendFormat": "{{species}}"}],
+      "fieldConfig": {"defaults": {"unit": "reqps", "custom": {"fillOpacity": 15, "lineWidth": 2}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 6, "type": "piechart", "title": "Predictions by species",
+      "gridPos": {"x": 16, "y": 5, "w": 8, "h": 9},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum by (species) (iris_predictions_total)", "legendFormat": "{{species}}", "instant": true}],
+      "options": {"pieType": "donut", "reduceOptions": {"calcs": ["lastNotNull"]}, "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}}
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Prediction latency (p50 / p95)",
+      "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(iris_prediction_latency_seconds_bucket[5m])))", "legendFormat": "p50"},
+        {"refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(iris_prediction_latency_seconds_bucket[5m])))", "legendFormat": "p95"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s", "custom": {"lineWidth": 2}}, "overrides": []}
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Average prediction confidence",
+      "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum(rate(iris_prediction_confidence_sum[5m])) / sum(rate(iris_prediction_confidence_count[5m]))", "legendFormat": "avg confidence"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "custom": {"fillOpacity": 20, "lineWidth": 2}, "color": {"mode": "fixed", "fixedColor": "green"}}, "overrides": []}
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Latest input feature values (cm) - drift watch",
+      "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "avg by (feature) (iris_input_feature_value)", "legendFormat": "{{feature}}"}],
+      "fieldConfig": {"defaults": {"custom": {"lineWidth": 2}}, "overrides": []}
+    },
+    {
+      "id": 10, "type": "bargauge", "title": "Predictions by source",
+      "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "sum by (source) (iris_predictions_total)", "legendFormat": "{{source}}", "instant": true}],
+      "fieldConfig": {"defaults": {"color": {"mode": "continuous-BlPu"}}, "overrides": []},
+      "options": {"orientation": "horizontal", "displayMode": "gradient", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    }
+  ]
+}
