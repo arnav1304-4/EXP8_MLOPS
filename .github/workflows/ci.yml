@@ -1,0 +1,51 @@
+name: CI - lint, train, test and build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  train-test-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest flake8
+
+      - name: Lint with flake8
+        run: flake8 app.py train.py test_model.py --max-line-length=110
+
+      - name: Train the model
+        run: python train.py
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: Upload the trained model
+        uses: actions/upload-artifact@v6
+        with:
+          name: iris-model
+          path: model.pkl
+
+      - name: Build the Docker image
+        run: docker build -t iris-app:${{ github.sha }} .
+
+      - name: Smoke test the container
+        run: |
+          docker run -d -p 8501:8501 -p 8001:8001 --name iris-app iris-app:${{ github.sha }}
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8501/_stcore/health && break
+            sleep 2
+          done
+          curl -f http://localhost:8501/_stcore/health
